@@ -35,7 +35,8 @@
       height: min(90vh, 600px);
       position: relative;
       border-radius: 1.4rem;
-      border: 1px solid rgba(255,255,255,0.25);
+      /* ✅ 去掉白色边框 */
+      border: none;
       background: radial-gradient(circle at 50% 20%, rgba(255,255,255,0.08), transparent 60%);
       box-shadow: 0 0 40px rgba(0,0,0,0.9);
       overflow: hidden;
@@ -76,10 +77,13 @@
     .spot {
       pointer-events: auto;
       cursor: pointer;
-      width: 160px;
-      height: 160px;
-      max-width: 36vw;
-      max-height: 36vw;
+
+      /* 这是有文字时的基础大小；实际大小会在 JS 里根据文字多少动态修改 */
+      width: 140px;
+      height: 140px;
+      max-width: 50vw;
+      max-height: 50vw;
+
       border-radius: 50%;
       border: 1.5px solid rgba(255,255,255,0.8);
       background: rgba(0,0,0,0.45);  /* 扁平，不再立体 */
@@ -88,9 +92,15 @@
       align-items: center;
       justify-content: center;
       padding: 1rem;
-      transition: border-color 140ms ease, background 140ms ease, transform 120ms ease;
       text-align: center;
       position: relative;
+
+      transition:
+        border-color 140ms ease,
+        background 140ms ease,
+        transform 120ms ease,
+        width 180ms ease,
+        height 180ms ease;
     }
 
     .spot:hover {
@@ -152,7 +162,38 @@
     .status-right {
       display: flex;
       align-items: center;
-      gap: 0.6rem;
+      gap: 0.4rem;
+    }
+
+    /* 通用按钮 */
+    .btn {
+      border: 1px solid rgba(255,255,255,0.7);
+      background: transparent;
+      padding: 0.4rem 1.4rem;
+      border-radius: 999px;
+      color: #fff;
+      cursor: pointer;
+      font-family: "Amatic SC", sans-serif;
+      font-size: 1.2rem;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+      pointer-events: auto;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.95);
+      color: rgba(255,255,255,0.85);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    /* 小号的导航按钮（◀ ▶） */
+    .btn-nav {
+      padding: 0.1rem 0.7rem;
+      font-size: 1.1rem;
     }
 
     /* 编辑 overlay */
@@ -209,30 +250,6 @@
       margin-top: 0.8rem;
     }
 
-    .btn {
-      border: 1px solid rgba(255,255,255,0.7);
-      background: transparent;
-      padding: 0.4rem 1.4rem;
-      border-radius: 999px;
-      color: #fff;
-      cursor: pointer;
-      font-family: "Amatic SC", sans-serif;
-      font-size: 1.2rem;
-      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
-      pointer-events: auto;
-    }
-
-    .btn:hover:not(:disabled) {
-      background: rgba(255,255,255,0.06);
-      border-color: rgba(255,255,255,0.95);
-      color: rgba(255,255,255,0.85);
-    }
-
-    .btn:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-
     @media (max-width: 720px) {
       .spots-grid {
         grid-template-columns: 1fr;
@@ -277,10 +294,14 @@
     <div class="status-bar">
       <span id="entry-counter">your memory · click a circle to write</span>
       <div class="status-right">
+        <!-- 手机/桌面都能点的左右切换按钮 -->
+        <button class="btn btn-nav" id="prev-memory-btn" aria-label="previous memory">◀</button>
+        <button class="btn btn-nav" id="next-memory-btn" aria-label="next memory">▶</button>
+
         <span class="nav-hint">
           ← / → browse others · 0 = back to your circles
         </span>
-        <!-- 新增：一次性保存三个 spot 的按钮 -->
+        <!-- 一次性保存三个 spot 的按钮 -->
         <button class="btn" id="save-all" disabled>save memory</button>
       </div>
     </div>
@@ -296,7 +317,7 @@
 
       <div class="editor-buttons">
         <button class="btn" id="editor-cancel">cancel</button>
-        <!-- 这里的按钮现在只是“确定这一格”，不再保存到 API -->
+        <!-- 这里只是“确定这一格”，不保存到 API -->
         <button class="btn" id="editor-save">ok</button>
       </div>
     </div>
@@ -331,10 +352,35 @@
     const editorInput = document.getElementById("editor-input");
     const btnCancel = document.getElementById("editor-cancel");
     const btnSpotOk = document.getElementById("editor-save");
-
     const btnSaveAll = document.getElementById("save-all");
 
-    // ===== 工具函数 =====
+    // 手机/桌面都能点的左右按钮
+    const btnPrev = document.getElementById("prev-memory-btn");
+    const btnNext = document.getElementById("next-memory-btn");
+
+    // ===== 尺寸相关工具：根据文字多少动态调整圆圈大小 =====
+    function resizeSpot(spot, text) {
+      const emptySize = 70;        // ✅ 空圈：更小
+      const baseSize = 120;        // 有少量文字时的基础尺寸
+      const maxSize = 220;         // 最大尺寸，避免撑爆布局
+
+      const value = (text || "").trim();
+      let size;
+
+      if (!value) {
+        size = emptySize;
+      } else {
+        const len = value.length;
+        // 每个字符增加一点点尺寸，限制在 maxSize 内
+        size = baseSize + len * 2; // 你可以调整乘数让变化更明显或更温柔
+        if (size > maxSize) size = maxSize;
+      }
+
+      spot.style.width = size + "px";
+      spot.style.height = size + "px";
+    }
+
+    // ===== 其他工具函数 =====
 
     function getCurrentEntry() {
       if (currentIndex < 0 || currentIndex >= allEntries.length) return null;
@@ -365,6 +411,9 @@
           spot.classList.remove("has-text");
           textEl.textContent = "";
         }
+
+        // ✅ 每次渲染时，根据文字多少调整尺寸（空的就是小圆点）
+        resizeSpot(spot, value);
       });
 
       if (allEntries.length > 0) {
@@ -374,11 +423,7 @@
       }
 
       // 控制 “save memory” 按钮是否可点
-      if (allDraftFilled()) {
-        btnSaveAll.disabled = false;
-      } else {
-        btnSaveAll.disabled = true;
-      }
+      btnSaveAll.disabled = !allDraftFilled();
     }
 
     function renderCurrentEntry() {
@@ -409,6 +454,9 @@
           spot.classList.remove("has-text");
           textEl.textContent = "";
         }
+
+        // ✅ 读别人的记忆时，也根据文字多少调整尺寸
+        resizeSpot(spot, value);
       });
 
       entryCounter.textContent =
@@ -503,9 +551,37 @@
         btnSaveAll.textContent = "save memory";
         // 保存完之后重新拉一次别人写的 memory
         await loadAllEntriesFromAPI();
-        // 你可以选择是否清空自己的草稿，这里先保留
         currentIndex = -1;
         renderDraft();
+      }
+    }
+
+    // 抽出来的导航函数：direction = +1（下一个） 或 -1（上一个）
+    function moveMemory(direction) {
+      const len = allEntries.length;
+      if (len === 0) {
+        // 没有别人可看，就回到自己的 circles
+        if (currentIndex !== -1) {
+          currentIndex = -1;
+          renderDraft();
+        }
+        return;
+      }
+
+      const total = len + 1; // 包含自己的 draft
+      let pos = currentIndex + 1; // -1 -> 0, 0 -> 1, ...
+
+      if (direction > 0) {
+        pos = (pos + 1) % total;
+      } else {
+        pos = (pos - 1 + total) % total;
+      }
+
+      currentIndex = pos - 1; // 0 -> -1, 1 -> 0, ...
+      if (currentIndex === -1) {
+        renderDraft();
+      } else {
+        renderCurrentEntry();
       }
     }
 
@@ -547,6 +623,17 @@
       await saveFullDraftToAPI();
     });
 
+    // 手机/桌面都能点的左右按钮
+    btnPrev.addEventListener("click", (e) => {
+      e.preventDefault();
+      moveMemory(-1);
+    });
+
+    btnNext.addEventListener("click", (e) => {
+      e.preventDefault();
+      moveMemory(1);
+    });
+
     // 键盘：左右键看别人；0 键回到自己的 circles；Esc 关编辑框
     document.addEventListener("keydown", (e) => {
       // 编辑框打开时只处理 Esc
@@ -558,34 +645,12 @@
         return;
       }
 
-      const len = allEntries.length;
-      if (len === 0) {
-        // 没有别人可看
-        if (currentIndex !== -1) {
-          currentIndex = -1;
-          renderDraft();
-        }
-        return;
-      }
-
-      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-        // 把 [-1, 0..len-1] 映射到 0..len（循环）
-        const total = len + 1; // 包含自己的 draft
-        let pos = currentIndex + 1; // -1 -> 0, 0 -> 1, ...
-
-        if (e.key === "ArrowRight") {
-          pos = (pos + 1) % total;
-        } else {
-          pos = (pos - 1 + total) % total;
-        }
-
-        currentIndex = pos - 1; // 0 -> -1, 1 -> 0, ...
-        if (currentIndex === -1) {
-          renderDraft();
-        } else {
-          renderCurrentEntry();
-        }
+      if (e.key === "ArrowRight") {
         e.preventDefault();
+        moveMemory(1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        moveMemory(-1);
       } else if (e.key === "0") {
         // 快捷键：回到自己的 circles
         currentIndex = -1;
