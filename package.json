@@ -1,21 +1,14 @@
 {
-  "name": "wf-neocities-db",
+  "name": "whispering-forest-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-
-"scripts": {
-  "start": "node server.js"
-}
-
-
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "main": "server.js",
   "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "neocities": "^0.0.3"
+    "express": "^4.21.0",
+    "neocities": "^0.0.9"
   }
 }

@@ -61,5 +61,5 @@ app.post("/api/a-entry", async (req, res) => {
 
 // 启动服务器
 app.listen(PORT, () => {
-  console.log(`🚀 API server listening on http://localhost:${PORT}`);
+  console.log(`🚀 API server listening on http://0.0.0.0:${PORT}`);
 });
