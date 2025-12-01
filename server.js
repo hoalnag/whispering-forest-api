@@ -6,7 +6,7 @@
 
 const express = require("express");
 const cors = require("cors");
-
+const path = require("path");           // ← 新增
 // 引入你刚才写好的“数据库模块”
 const { appendEntry, getEntries } = require("./neocities-db-a");
 
@@ -19,6 +19,7 @@ app.use(cors());
 // 让 Express 能解析 JSON body
 app.use(express.json());
 
+app.use(express.static(path.join(__dirname, "public")));
 // 测试用
 app.get("/", (req, res) => {
   res.send("whispering forest a.html API is running.");

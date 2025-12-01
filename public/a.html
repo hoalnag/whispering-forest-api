@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>whispering forest – scene A (test)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- 字体：Amatic SC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+    body {
+      font-family: "Amatic SC", sans-serif;
+      background: #000;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    main {
+      width: min(90%, 800px);
+      text-align: center;
+    }
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    p {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    button {
+      font-family: inherit;
+      font-size: 1.4rem;
+      padding: 0.6rem 1.8rem;
+      border-radius: 999px;
+      border: 1px solid #fff;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover {
+      color: rgba(255,255,255,0.7);
+    }
+    pre {
+      margin-top: 2rem;
+      text-align: left;
+      font-size: 1rem;
+      max-height: 300px;
+      overflow: auto;
+      background: rgba(255,255,255,0.05);
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Scene A – API test</h1>
+    <p>Click the button to load <code>/api/a-entries</code> from this Railway app.</p>
+
+    <button id="load-btn">Load entries</button>
+
+    <pre id="output">(no data yet)</pre>
+  </main>
+
+  <script>
+    const btn = document.getElementById("load-btn");
+    const out = document.getElementById("output");
+
+    btn.addEventListener("click", async () => {
+      out.textContent = "Loading...";
+      try {
+        const resp = await fetch("/api/a-entries");
+        if (!resp.ok) {
+          out.textContent = "Error: HTTP " + resp.status;
+          return;
+        }
+        const data = await resp.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.textContent = "Fetch error: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
