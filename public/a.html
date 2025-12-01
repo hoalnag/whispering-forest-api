@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>whispering forest – scene A (test)</title>
+  <title>whispering forest – scene A</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- 字体：Amatic SC -->
@@ -14,14 +14,13 @@
   />
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
     }
+
     body {
       font-family: "Amatic SC", sans-serif;
       background: #000;
@@ -30,72 +29,428 @@
       align-items: center;
       justify-content: center;
     }
+
     main {
-      width: min(90%, 800px);
+      width: min(90%, 900px);
+      height: min(90vh, 600px);
+      position: relative;
+      border-radius: 1.4rem;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: radial-gradient(circle at 50% 20%, rgba(255,255,255,0.12), transparent 60%);
+      box-shadow: 0 0 40px rgba(0,0,0,0.9);
+      overflow: hidden;
+    }
+
+    .scene-title {
+      position: absolute;
+      top: 1.2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.4rem;
+      letter-spacing: 0.18em;
+      opacity: 0.8;
+      text-transform: uppercase;
+      user-select: none;
+    }
+
+    /* 三个圆形 key spot */
+    .spots-layer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .spots-grid {
+      width: 100%;
+      max-width: 720px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3rem;
+      padding: 0 3rem;
+      pointer-events: none;
+    }
+
+    .spot {
+      pointer-events: auto;
+      cursor: pointer;
+      width: 160px;
+      height: 160px;
+      max-width: 36vw;
+      max-height: 36vw;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.75);
+      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.15), transparent 65%);
+      box-shadow: 0 0 24px rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      transition: border-color 140ms ease, background 140ms ease, transform 120ms ease;
       text-align: center;
     }
-    h1 {
-      font-size: 3rem;
-      margin-bottom: 1rem;
+
+    .spot:hover {
+      border-color: rgba(255,255,255,0.95);
+      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.25), transparent 65%);
+      transform: translateY(-2px);
     }
-    p {
-      font-size: 1.5rem;
-      margin-bottom: 2rem;
-    }
-    button {
-      font-family: inherit;
+
+    .spot-text {
       font-size: 1.4rem;
-      padding: 0.6rem 1.8rem;
-      border-radius: 999px;
-      border: 1px solid #fff;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .spot-placeholder {
+      opacity: 0.6;
+      font-style: italic;
+    }
+
+    .status-bar {
+      position: absolute;
+      bottom: 0.6rem;
+      left: 0;
+      right: 0;
+      padding: 0 1.2rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 1rem;
+      opacity: 0.85;
+      pointer-events: none;
+    }
+
+    .nav-hint {
+      font-size: 0.95rem;
+      opacity: 0.7;
+    }
+
+    /* 编辑 overlay */
+    .editor-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    .editor-overlay.visible {
+      display: flex;
+    }
+
+    .editor-box {
+      width: min(90%, 520px);
+      background: #050505;
+      padding: 1.2rem 1.6rem 1rem;
+      border-radius: 1.2rem;
+      border: 1px solid rgba(255,255,255,0.3);
+      box-shadow: 0 0 32px rgba(0,0,0,0.9);
+    }
+
+    .editor-prompt {
+      font-size: 1.4rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .editor-input {
+      width: 100%;
+      min-height: 90px;
+      resize: vertical;
+      background: #050505;
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 0.8rem;
+      padding: 0.6rem 0.8rem;
+      color: #fff;
+      font-family: "Amatic SC", sans-serif;
+      font-size: 1.4rem;
+      outline: none;
+    }
+
+    .editor-input:focus {
+      border-color: rgba(255,255,255,0.9);
+    }
+
+    .editor-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.6rem;
+      margin-top: 0.8rem;
+    }
+
+    .btn {
+      border: 1px solid rgba(255,255,255,0.7);
       background: transparent;
+      padding: 0.4rem 1.4rem;
+      border-radius: 999px;
       color: #fff;
       cursor: pointer;
+      font-family: "Amatic SC", sans-serif;
+      font-size: 1.2rem;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
     }
-    button:hover {
-      color: rgba(255,255,255,0.7);
+
+    .btn:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.95);
+      color: rgba(255,255,255,0.85);
     }
-    pre {
-      margin-top: 2rem;
-      text-align: left;
-      font-size: 1rem;
-      max-height: 300px;
-      overflow: auto;
-      background: rgba(255,255,255,0.05);
-      padding: 1rem;
-      border-radius: 0.5rem;
-      border: 1px solid rgba(255,255,255,0.2);
+
+    @media (max-width: 720px) {
+      .spots-grid {
+        grid-template-columns: 1fr;
+        gap: 1.6rem;
+        padding: 0 1.6rem;
+      }
+      .spot {
+        width: 140px;
+        height: 140px;
+      }
+      .scene-title {
+        font-size: 1.1rem;
+      }
     }
   </style>
 </head>
+
 <body>
   <main>
-    <h1>Scene A – API test</h1>
-    <p>Click the button to load <code>/api/a-entries</code> from this Railway app.</p>
+    <div class="scene-title">choose your memory</div>
 
-    <button id="load-btn">Load entries</button>
+    <div class="spots-layer">
+      <div class="spots-grid">
+        <div class="spot" data-spot="1">
+          <div class="spot-text spot-placeholder">
+            who were you with?
+          </div>
+        </div>
 
-    <pre id="output">(no data yet)</pre>
+        <div class="spot" data-spot="2">
+          <div class="spot-text spot-placeholder">
+            what were you eating?
+          </div>
+        </div>
+
+        <div class="spot" data-spot="3">
+          <div class="spot-text spot-placeholder">
+            what did the place smell like?
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span id="entry-counter">no entries yet</span>
+      <span class="nav-hint">← / → browse others · click a circle to write</span>
+    </div>
   </main>
 
-  <script>
-    const btn = document.getElementById("load-btn");
-    const out = document.getElementById("output");
+  <!-- 编辑 overlay -->
+  <div class="editor-overlay" id="editor-overlay">
+    <div class="editor-box">
+      <div class="editor-prompt" id="editor-prompt">
+        who were you with last time you ate a burger?
+      </div>
+      <textarea id="editor-input" class="editor-input"></textarea>
 
-    btn.addEventListener("click", async () => {
-      out.textContent = "Loading...";
+      <div class="editor-buttons">
+        <button class="btn" id="editor-cancel">cancel</button>
+        <button class="btn" id="editor-save">save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ------- 状态 -------
+    let allEntries = [];
+    let currentIndex = -1;
+    let editingSpot = null;
+
+    const prompts = {
+      1: "who were you with last time you ate a burger?",
+      2: "what were you eating?",
+      3: "what could you hear around you?"
+    };
+
+    const spots = Array.from(document.querySelectorAll(".spot"));
+    const entryCounter = document.getElementById("entry-counter");
+
+    const overlay = document.getElementById("editor-overlay");
+    const editorPrompt = document.getElementById("editor-prompt");
+    const editorInput = document.getElementById("editor-input");
+    const btnCancel = document.getElementById("editor-cancel");
+    const btnSave = document.getElementById("editor-save");
+
+    // ------- 工具函数 -------
+
+    function getCurrentEntry() {
+      if (currentIndex < 0 || currentIndex >= allEntries.length) return null;
+      return allEntries[currentIndex];
+    }
+
+    function renderEntry() {
+      const entry = getCurrentEntry();
+
+      if (!entry) {
+        // 没有任何 entry，显示 placeholder
+        spots.forEach(spot => {
+          const s = spot.dataset.spot;
+          const textEl = spot.querySelector(".spot-text");
+          textEl.classList.add("spot-placeholder");
+          if (s === "1") textEl.textContent = "who were you with?";
+          if (s === "2") textEl.textContent = "what were you eating?";
+          if (s === "3") textEl.textContent = "what did the place smell like?";
+        });
+        entryCounter.textContent = "no entries yet";
+        return;
+      }
+
+      spots.forEach(spot => {
+        const s = spot.dataset.spot;
+        const textEl = spot.querySelector(".spot-text");
+        const key = "spot" + s;
+        const value = (entry[key] || "").trim();
+
+        if (value) {
+          textEl.classList.remove("spot-placeholder");
+          textEl.textContent = value;
+        } else {
+          textEl.classList.add("spot-placeholder");
+          if (s === "1") textEl.textContent = "who were you with?";
+          if (s === "2") textEl.textContent = "what were you eating?";
+          if (s === "3") textEl.textContent = "what did the place smell like?";
+        }
+      });
+
+      entryCounter.textContent =
+        "memory " + (currentIndex + 1) + " / " + allEntries.length;
+    }
+
+    async function loadAllEntriesFromAPI() {
       try {
         const resp = await fetch("/api/a-entries");
         if (!resp.ok) {
-          out.textContent = "Error: HTTP " + resp.status;
+          console.error("load error HTTP", resp.status);
           return;
         }
         const data = await resp.json();
-        out.textContent = JSON.stringify(data, null, 2);
+        if (Array.isArray(data)) {
+          allEntries = data.sort(
+            (a, b) => (a.createdAt || 0) - (b.createdAt || 0)
+          );
+          currentIndex = allEntries.length - 1; // 默认看最新的
+        } else {
+          allEntries = [];
+          currentIndex = -1;
+        }
+        renderEntry();
       } catch (err) {
-        out.textContent = "Fetch error: " + err.message;
+        console.error("load entries error:", err);
+      }
+    }
+
+    function openEditor(spotNumber) {
+      editingSpot = spotNumber;
+      const entry = getCurrentEntry();
+      const key = "spot" + spotNumber;
+
+      editorPrompt.textContent = prompts[spotNumber] || "write something";
+      editorInput.value = entry ? (entry[key] || "") : "";
+      overlay.classList.add("visible");
+      editorInput.focus();
+      editorInput.select();
+    }
+
+    function closeEditor() {
+      overlay.classList.remove("visible");
+      editingSpot = null;
+    }
+
+    async function saveCurrentSpot() {
+      if (!editingSpot) return;
+
+      const entry = getCurrentEntry() || { spot1: "", spot2: "", spot3: "" };
+      const key = "spot" + editingSpot;
+
+      const updated = {
+        ...entry,
+        [key]: editorInput.value.trim(),
+        createdAt: Date.now()
+      };
+
+      try {
+        const resp = await fetch("/api/a-entry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updated)
+        });
+        if (!resp.ok) {
+          console.error("save error HTTP", resp.status);
+        }
+      } catch (err) {
+        console.error("save error:", err);
+      } finally {
+        closeEditor();
+        await loadAllEntriesFromAPI(); // 保存后重新加载，跳转到最新
+      }
+    }
+
+    // ------- 事件 -------
+
+    // 点击圆圈 -> 打开编辑框
+    spots.forEach(spot => {
+      spot.addEventListener("click", () => {
+        const n = Number(spot.dataset.spot);
+        openEditor(n);
+      });
+    });
+
+    btnCancel.addEventListener("click", (e) => {
+      e.preventDefault();
+      closeEditor();
+    });
+
+    btnSave.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await saveCurrentSpot();
+    });
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) {
+        closeEditor();
       }
     });
+
+    // 左右键切换别人的答案
+    document.addEventListener("keydown", (e) => {
+      // 如果编辑框开着，只响应 Esc
+      if (overlay.classList.contains("visible")) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          closeEditor();
+        }
+        return;
+      }
+
+      if (e.key === "ArrowRight") {
+        if (allEntries.length > 0) {
+          currentIndex = (currentIndex + 1) % allEntries.length;
+          renderEntry();
+        }
+      } else if (e.key === "ArrowLeft") {
+        if (allEntries.length > 0) {
+          currentIndex =
+            (currentIndex - 1 + allEntries.length) % allEntries.length;
+          renderEntry();
+        }
+      }
+    });
+
+    // ------- 初始化 -------
+    loadAllEntriesFromAPI();
   </script>
 </body>
 </html>
