@@ -10,5 +10,17 @@
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "neocities": "^0.0.3"
-  }
+  },
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoalnag/whispering-forest-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hoalnag/whispering-forest-api/issues"
+  },
+  "homepage": "https://github.com/hoalnag/whispering-forest-api#readme"
 }

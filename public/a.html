@@ -137,14 +137,22 @@
       padding: 0 1.2rem;
       display: flex;
       justify-content: space-between;
+      align-items: center;
       font-size: 1rem;
       opacity: 0.85;
       pointer-events: none;
+      gap: 0.6rem;
     }
 
     .nav-hint {
       font-size: 0.95rem;
       opacity: 0.7;
+    }
+
+    .status-right {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
     }
 
     /* 编辑 overlay */
@@ -211,12 +219,18 @@
       font-family: "Amatic SC", sans-serif;
       font-size: 1.2rem;
       transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+      pointer-events: auto;
     }
 
-    .btn:hover {
+    .btn:hover:not(:disabled) {
       background: rgba(255,255,255,0.06);
       border-color: rgba(255,255,255,0.95);
       color: rgba(255,255,255,0.85);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
     }
 
     @media (max-width: 720px) {
@@ -231,6 +245,10 @@
       }
       .scene-title {
         font-size: 1.1rem;
+      }
+      .status-bar {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }
   </style>
@@ -258,7 +276,13 @@
 
     <div class="status-bar">
       <span id="entry-counter">your memory · click a circle to write</span>
-      <span class="nav-hint">← / → browse others · 0 = back to your circles</span>
+      <div class="status-right">
+        <span class="nav-hint">
+          ← / → browse others · 0 = back to your circles
+        </span>
+        <!-- 新增：一次性保存三个 spot 的按钮 -->
+        <button class="btn" id="save-all" disabled>save memory</button>
+      </div>
     </div>
   </main>
 
@@ -272,7 +296,8 @@
 
       <div class="editor-buttons">
         <button class="btn" id="editor-cancel">cancel</button>
-        <button class="btn" id="editor-save">save</button>
+        <!-- 这里的按钮现在只是“确定这一格”，不再保存到 API -->
+        <button class="btn" id="editor-save">ok</button>
       </div>
     </div>
   </div>
@@ -305,13 +330,23 @@
     const editorPrompt = document.getElementById("editor-prompt");
     const editorInput = document.getElementById("editor-input");
     const btnCancel = document.getElementById("editor-cancel");
-    const btnSave = document.getElementById("editor-save");
+    const btnSpotOk = document.getElementById("editor-save");
+
+    const btnSaveAll = document.getElementById("save-all");
 
     // ===== 工具函数 =====
 
     function getCurrentEntry() {
       if (currentIndex < 0 || currentIndex >= allEntries.length) return null;
       return allEntries[currentIndex];
+    }
+
+    function allDraftFilled() {
+      return (
+        draft.spot1.trim().length > 0 &&
+        draft.spot2.trim().length > 0 &&
+        draft.spot3.trim().length > 0
+      );
     }
 
     function renderDraft() {
@@ -336,6 +371,13 @@
         entryCounter.textContent = `your memory · ${allEntries.length} others`;
       } else {
         entryCounter.textContent = "your memory · click a circle to write";
+      }
+
+      // 控制 “save memory” 按钮是否可点
+      if (allDraftFilled()) {
+        btnSaveAll.disabled = false;
+      } else {
+        btnSaveAll.disabled = true;
       }
     }
 
@@ -371,6 +413,9 @@
 
       entryCounter.textContent =
         `memory ${currentIndex + 1} / ${allEntries.length} · read only`;
+
+      // 看别人时，不能保存
+      btnSaveAll.disabled = true;
     }
 
     async function loadAllEntriesFromAPI() {
@@ -415,13 +460,21 @@
       editingSpot = null;
     }
 
-    async function saveDraftSpot() {
+    // 不再保存到 API，只更新本地 draft
+    function confirmDraftSpot() {
       if (!editingSpot) return;
-
       const key = "spot" + editingSpot;
       draft[key] = editorInput.value.trim();
+      closeEditor();
+      // 仍然保持 currentIndex = -1（在自己的 memory 模式）
+      currentIndex = -1;
+      renderDraft();
+    }
 
-      // 把当前整套 draft 作为一个 entry 发给 API（纪录你的版本）
+    // 真正发到 API 的保存：一次性提交 3 个 spot
+    async function saveFullDraftToAPI() {
+      if (!allDraftFilled()) return;
+
       const payload = {
         spot1: draft.spot1,
         spot2: draft.spot2,
@@ -430,18 +483,29 @@
       };
 
       try {
-        await fetch("/api/a-entry", {
+        btnSaveAll.disabled = true;
+        btnSaveAll.textContent = "saving...";
+
+        const resp = await fetch("/api/a-entry", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
+
+        if (!resp.ok) {
+          console.error("save error HTTP", resp.status);
+        } else {
+          console.log("saved entry");
+        }
       } catch (err) {
         console.error("save error:", err);
       } finally {
-        closeEditor();
-        // 重新加载所有别人的 entries，但保持 currentIndex = -1（你的草稿视图）
-        currentIndex = -1;
+        btnSaveAll.textContent = "save memory";
+        // 保存完之后重新拉一次别人写的 memory
         await loadAllEntriesFromAPI();
+        // 你可以选择是否清空自己的草稿，这里先保留
+        currentIndex = -1;
+        renderDraft();
       }
     }
 
@@ -464,15 +528,23 @@
       closeEditor();
     });
 
-    btnSave.addEventListener("click", async (e) => {
+    // 现在这个按钮只是“OK”，不发网络请求
+    btnSpotOk.addEventListener("click", (e) => {
       e.preventDefault();
-      await saveDraftSpot();
+      confirmDraftSpot();
     });
 
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) {
         closeEditor();
       }
+    });
+
+    // 底部 “save memory” 按钮：一次性 POST 三个 spot
+    btnSaveAll.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (!allDraftFilled()) return;
+      await saveFullDraftToAPI();
     });
 
     // 键盘：左右键看别人；0 键回到自己的 circles；Esc 关编辑框
