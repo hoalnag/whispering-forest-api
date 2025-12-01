@@ -1,0 +1,37 @@
+[
+  {
+    "id": "test-1764550516626",
+    "createdAt": 1764550516626,
+    "spot1": "my girlfriend and I",
+    "spot2": "a double cheeseburger and fries",
+    "spot3": "rainy neon night"
+  },
+  {
+    "id": "test-1764550559895",
+    "createdAt": 1764550559896,
+    "spot1": "my girlfriend and I",
+    "spot2": "a double cheeseburger and fries",
+    "spot3": "rainy neon night"
+  },
+  {
+    "id": "test-1764550563789",
+    "createdAt": 1764550563789,
+    "spot1": "my girlfriend and I",
+    "spot2": "a double cheeseburger and fries",
+    "spot3": "rainy neon night"
+  },
+  {
+    "id": "entry-1764550734973",
+    "createdAt": 1764550734973,
+    "spot1": "my girlfriend and I (from CLI test)",
+    "spot2": "a double cheeseburger and fries",
+    "spot3": "rainy neon night"
+  },
+  {
+    "id": "entry-1764551037728",
+    "createdAt": 1764551037728,
+    "spot1": "from API test",
+    "spot2": "test burger",
+    "spot3": "test memory"
+  }
+]
