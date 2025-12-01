@@ -1,149 +1,181 @@
-// neocities-db-a.js (module version with appendEntry & getEntries)
-//
-// 目标：
-// 1. 提供函数 appendEntry(newEntry) —— 追加一条记录并上传到 Neocities
-// 2. 提供函数 getEntries() —— 读取线上 JSON 中的所有记录
-// 3. 如果直接用 `node neocities-db-a.js` 运行，会自动追加一条测试记录（方便你本地试）
+// neocities-db-a.js
+// 封装：从 Neocities 读 JSON & 把 JSON 上传回 Neocities
 
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
 const neocities = require("neocities");
 
-// 从环境变量中读取 Neocities 凭据
-const NC_USER = process.env.NC_USER;
-const NC_PASS = process.env.NC_PASS;
+// ---- 1. 配置 ----
+// 支持两种环境变量名，哪个有值就用哪个：
+const NC_USER =
+  process.env.NEOCITIES_USER ||
+  process.env.NC_USER || // 兼容你之前的配置
+  "";
+
+const NC_PASS =
+  process.env.NEOCITIES_PASS ||
+  process.env.NC_PASS || // 兼容你之前的配置
+  "";
+
+// 站点名（就是 whispering-forest，那一部分，不含 .neocities.org）
 const SITE_NAME = process.env.SITE_NAME || "whispering-forest";
 
-// 本地临时 JSON 文件路径
+// 远程 JSON 在 Neocities 里的路径
+const REMOTE_JSON_PATH = "data/a_entries.json";
+
+// Railway 容器本地临时 JSON 文件路径
 const LOCAL_JSON_PATH = path.join(__dirname, "a_entries.json");
 
-// 线上 JSON 文件 URL
-const REMOTE_JSON_URL = `https://${SITE_NAME}.neocities.org/data/a_entries.json`;
+// 用来上传的 Neocities 客户端
+let api = null;
+if (NC_USER && NC_PASS) {
+  api = new neocities(NC_USER, NC_PASS);
+  console.log(
+    "[Neocities] Init client with user =",
+    NC_USER,
+    ", hasKey =",
+    !!NC_PASS
+  );
+} else {
+  console.warn(
+    "[Neocities] WARNING: Missing credentials. Set NEOCITIES_USER / NEOCITIES_PASS or NC_USER / NC_PASS."
+  );
+}
 
-// 初始化 Neocities API 客户端
-const api = new neocities(NC_USER, NC_PASS);
+// ---- 2. 从 Neocities 读取 JSON（用 https GET） ----
 
-// 从线上拉取当前 entries（如果失败就返回 []）
-function fetchCurrentEntries() {
-  return new Promise((resolve) => {
+function fetchRemoteJson() {
+  const url = `https://${SITE_NAME}.neocities.org/${REMOTE_JSON_PATH}`;
+  console.log("[Neocities] Fetching remote JSON:", url);
+
+  return new Promise((resolve, reject) => {
     https
-      .get(REMOTE_JSON_URL, (res) => {
-        if (res.statusCode !== 200) {
-          console.log(
-            `No existing a_entries.json found (status ${res.statusCode}), starting with [].`
-          );
-          resolve([]);
-          return;
+      .get(url, (res) => {
+        const { statusCode } = res;
+
+        if (statusCode === 404) {
+          console.warn("[Neocities] Remote JSON not found (404). Using [].");
+          res.resume(); // 丢弃响应体
+          return resolve([]);
         }
 
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
+        if (statusCode < 200 || statusCode >= 300) {
+          res.resume();
+          return reject(
+            new Error(
+              `Unexpected status code ${statusCode} when fetching ${url}`
+            )
+          );
+        }
+
+        let raw = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (raw += chunk));
         res.on("end", () => {
           try {
-            const json = JSON.parse(data);
-            if (Array.isArray(json)) {
-              console.log(`Fetched ${json.length} existing entries.`);
-              resolve(json);
-            } else {
-              console.warn("Existing JSON is not an array, resetting to []");
-              resolve([]);
+            if (!raw.trim()) {
+              console.warn("[Neocities] Remote JSON empty. Using [].");
+              return resolve([]);
             }
-          } catch (e) {
-            console.warn("Failed to parse existing JSON, resetting to []");
-            resolve([]);
+            const data = JSON.parse(raw);
+            console.log(
+              "[Neocities] Remote JSON loaded. Entries:",
+              Array.isArray(data) ? data.length : "not array"
+            );
+            resolve(Array.isArray(data) ? data : []);
+          } catch (err) {
+            reject(
+              new Error("[Neocities] Failed to parse remote JSON: " + err)
+            );
           }
         });
       })
       .on("error", (err) => {
-        console.warn("Error fetching existing entries:", err.message);
-        console.warn("Starting with empty [].");
+        console.error("[Neocities] HTTPS error:", err.message);
+        // 网络出错时，可以选择返回本地文件内容或 []
         resolve([]);
       });
   });
 }
 
-// 把 entries 数组写到本地文件
-function saveLocalEntries(entries) {
+// ---- 3. 把 entries 写到本地文件，并上传到 Neocities ----
+
+function uploadEntries(entries) {
+  if (!api) {
+    console.error(
+      "[Neocities] Cannot upload: missing credentials (NEOCITIES_USER / NEOCITIES_PASS or NC_USER / NC_PASS)"
+    );
+    return Promise.reject(
+      new Error("Missing Neocities credentials (invalid_auth)")
+    );
+  }
+
+  // 写本地 JSON
   fs.writeFileSync(
     LOCAL_JSON_PATH,
     JSON.stringify(entries, null, 2),
     "utf8"
   );
-  console.log("Local a_entries.json written:", LOCAL_JSON_PATH);
-}
+  console.log(
+    "[Neocities] Local a_entries.json written:",
+    LOCAL_JSON_PATH,
+    "entries:",
+    entries.length
+  );
 
-// 用 Neocities API 上传 data/a_entries.json
-function uploadEntriesFile() {
+  // 上传
   return new Promise((resolve, reject) => {
     api.upload(
       [
         {
-          name: "data/a_entries.json", // 站点里的路径
-          path: LOCAL_JSON_PATH        // 本地文件路径
-        }
+          name: REMOTE_JSON_PATH, // 上传到 Neocities 的路径
+          path: LOCAL_JSON_PATH, // 本地文件
+        },
       ],
-      function (resp) {
-        console.log("Upload response:", resp);
-        if (resp.result === "success") {
-          console.log(
-            `✅ Done! Now open: https://${SITE_NAME}.neocities.org/data/a_entries.json`
-          );
-          resolve(resp);
-        } else {
-          console.error("❌ Upload failed, check error above.");
-          reject(new Error("Upload failed"));
+      (resp) => {
+        console.log("[Neocities] Upload response:", resp);
+        if (resp && resp.result === "success") {
+          return resolve(resp);
         }
+        const err =
+          (resp && resp.message) ||
+          "Upload failed (see Neocities response above)";
+        reject(new Error(err));
       }
     );
   });
 }
 
-// ⭐ 对外暴露：读取所有 entries（以后 server 会用到）
-async function getEntries() {
-  const entries = await fetchCurrentEntries();
-  return entries;
+// ---- 4. 导出给 server.js 用 ----
+
+async function loadEntries() {
+  const entries = await fetchRemoteJson();
+  return Array.isArray(entries) ? entries : [];
 }
 
-// ⭐ 对外暴露：追加一条 entry 并上传
-async function appendEntry(newEntry) {
-  const entries = await fetchCurrentEntries();
-
-  const entry = {
-    id: newEntry.id || "entry-" + Date.now(),
-    createdAt: Date.now(),
-    spot1: newEntry.spot1 || "",
-    spot2: newEntry.spot2 || "",
-    spot3: newEntry.spot3 || ""
-  };
-
-  console.log("Appending new entry:", entry);
-  entries.push(entry);
-  console.log(`Total entries after append: ${entries.length}`);
-
-  saveLocalEntries(entries);
-  await uploadEntriesFile();
-
-  return entry;
+async function saveEntries(entries) {
+  await uploadEntries(entries);
 }
 
-// 如果直接 `node neocities-db-a.js` 运行，就跑一个小测试
-if (require.main === module) {
-  appendEntry({
-    spot1: "my girlfriend and I (from CLI test)",
-    spot2: "a double cheeseburger and fries",
-    spot3: "rainy neon night"
-  })
-    .then((entry) => {
-      console.log("CLI test entry appended:", entry);
-    })
-    .catch((err) => {
-      console.error("Unexpected error in CLI test:", err);
-    });
-}
-
-// 导出给其他文件用（下一步要在 server.js 里用到）
 module.exports = {
-  appendEntry,
-  getEntries
+  loadEntries,
+  saveEntries,
+  // 下面这两个给你调试时用（可选）
+  _INTERNAL: {
+    LOCAL_JSON_PATH,
+    SITE_NAME,
+  },
 };
+
+// 如果单独 node neocities-db-a.js，则只测试一下拉取
+if (require.main === module) {
+  (async () => {
+    try {
+      const entries = await loadEntries();
+      console.log("[Neocities] CLI test, got entries:", entries.length);
+    } catch (err) {
+      console.error("[Neocities] CLI test error:", err);
+    }
+  })();
+}

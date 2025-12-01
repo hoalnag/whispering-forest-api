@@ -1,66 +1,89 @@
 // server.js
-//
-// 一个非常小的 HTTP API：
-// GET  /api/a-entries  -> 读出所有 entries
-// POST /api/a-entry    -> 从 body 接收 {spot1, spot2, spot3}，追加一条 entry 并上传到 Neocities
+// whispering forest API server for a.html
 
 const express = require("express");
-const cors = require("cors");
-const path = require("path");           // ← 新增
-// 引入你刚才写好的“数据库模块”
-const { appendEntry, getEntries } = require("./neocities-db-a");
+const path = require("path");
+const { loadEntries, saveEntries } = require("./neocities-db-a");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
-// 允许任何来源访问（开发阶段先开着，之后你可以限制只允许你的域名）
-app.use(cors());
-
-// 让 Express 能解析 JSON body
+// 解析 JSON body
 app.use(express.json());
 
-app.use(express.static(path.join(__dirname, "public")));
-// 测试用
-app.get("/", (req, res) => {
-  res.send("whispering forest a.html API is running.");
+// 简单 CORS（如果你以后从别的域名调这个 API）
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
 });
 
-// 1) 返回所有 entries
+// Health check
+app.get("/", (req, res) => {
+  res.type("text/plain").send("whispering forest a.html API is running.");
+});
+
+// GET /api/a-entries  -> 所有人共享的 memory 列表
 app.get("/api/a-entries", async (req, res) => {
   try {
-    const entries = await getEntries();
+    const entries = await loadEntries();
     res.json(entries);
   } catch (err) {
-    console.error("Error in GET /api/a-entries:", err);
-    res.status(500).json({ error: "failed_to_get_entries" });
+    console.error("[API] Error in GET /api/a-entries:", err);
+    res.status(500).json({ error: "Failed to load entries" });
   }
 });
 
-// 2) 追加一条 entry
+// POST /api/a-entry  -> 追加一条新 memory
 app.post("/api/a-entry", async (req, res) => {
   try {
     const { spot1, spot2, spot3 } = req.body || {};
 
-    // 简单校验：至少得有一项有内容
-    if (!spot1 && !spot2 && !spot3) {
-      return res
-        .status(400)
-        .json({ error: "empty_entry", message: "spot1/2/3 all empty" });
+    if (
+      typeof spot1 !== "string" ||
+      typeof spot2 !== "string" ||
+      typeof spot3 !== "string"
+    ) {
+      return res.status(400).json({
+        error: "spot1, spot2, spot3 must be strings",
+      });
     }
 
-    const newEntry = await appendEntry({ spot1, spot2, spot3 });
+    const now = Date.now();
+    const newEntry = {
+      id: `entry-${now}`,
+      createdAt: now,
+      spot1,
+      spot2,
+      spot3,
+    };
 
-    res.json({
+    const entries = await loadEntries();
+    entries.push(newEntry);
+
+    console.log("[API] Appending new entry:", newEntry);
+
+    await saveEntries(entries);
+
+    res.status(201).json({
       ok: true,
-      entry: newEntry
+      entry: newEntry,
+      total: entries.length,
     });
   } catch (err) {
-    console.error("Error in POST /api/a-entry:", err);
-    res.status(500).json({ error: "failed_to_append_entry" });
+    console.error("[API] Error in POST /api/a-entry:", err);
+    // 如果是 Neocities 鉴权失败，这里也会返回 500，但信息更清楚
+    res.status(500).json({ error: err.message || "Failed to save entry" });
   }
 });
 
-// 启动服务器
+// 静态文件（可选：如果你把 a.html 放在 Railway 一起跑）
+app.use(express.static(path.join(__dirname, "public")));
+
 app.listen(PORT, () => {
   console.log(`🚀 API server listening on http://0.0.0.0:${PORT}`);
 });
