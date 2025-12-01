@@ -36,7 +36,7 @@
       position: relative;
       border-radius: 1.4rem;
       border: 1px solid rgba(255,255,255,0.25);
-      background: radial-gradient(circle at 50% 20%, rgba(255,255,255,0.12), transparent 60%);
+      background: radial-gradient(circle at 50% 20%, rgba(255,255,255,0.08), transparent 60%);
       box-shadow: 0 0 40px rgba(0,0,0,0.9);
       overflow: hidden;
     }
@@ -53,7 +53,7 @@
       user-select: none;
     }
 
-    /* 三个圆形 key spot */
+    /* 三个圆形 keyspot 容器 */
     .spots-layer {
       position: absolute;
       inset: 0;
@@ -81,32 +81,52 @@
       max-width: 36vw;
       max-height: 36vw;
       border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.75);
-      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.15), transparent 65%);
-      box-shadow: 0 0 24px rgba(0,0,0,0.7);
+      border: 1.5px solid rgba(255,255,255,0.8);
+      background: rgba(0,0,0,0.45);  /* 扁平，不再立体 */
+      box-shadow: none;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 1rem;
       transition: border-color 140ms ease, background 140ms ease, transform 120ms ease;
       text-align: center;
+      position: relative;
     }
 
     .spot:hover {
-      border-color: rgba(255,255,255,0.95);
-      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.25), transparent 65%);
+      border-color: rgba(255,255,255,1);
+      background: rgba(255,255,255,0.05);
       transform: translateY(-2px);
+    }
+
+    /* 空状态时：小圆圈 + 中间一点 */
+    .spot::before {
+      content: "";
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      opacity: 0.7;
+      transition: opacity 120ms ease;
+    }
+
+    /* 有文字时取消中间小点 */
+    .spot.has-text::before {
+      opacity: 0;
     }
 
     .spot-text {
       font-size: 1.4rem;
       white-space: pre-wrap;
       word-break: break-word;
+      max-width: 90%;
+      line-height: 1.25;
+      opacity: 0.95;
     }
 
-    .spot-placeholder {
-      opacity: 0.6;
-      font-style: italic;
+    .spot-empty .spot-text {
+      display: none; /* 只显示小点 */
     }
 
     .status-bar {
@@ -222,29 +242,23 @@
 
     <div class="spots-layer">
       <div class="spots-grid">
-        <div class="spot" data-spot="1">
-          <div class="spot-text spot-placeholder">
-            who were you with?
-          </div>
+        <div class="spot spot-empty" data-spot="1">
+          <div class="spot-text"></div>
         </div>
 
-        <div class="spot" data-spot="2">
-          <div class="spot-text spot-placeholder">
-            what were you eating?
-          </div>
+        <div class="spot spot-empty" data-spot="2">
+          <div class="spot-text"></div>
         </div>
 
-        <div class="spot" data-spot="3">
-          <div class="spot-text spot-placeholder">
-            what did the place smell like?
-          </div>
+        <div class="spot spot-empty" data-spot="3">
+          <div class="spot-text"></div>
         </div>
       </div>
     </div>
 
     <div class="status-bar">
-      <span id="entry-counter">no entries yet</span>
-      <span class="nav-hint">← / → browse others · click a circle to write</span>
+      <span id="entry-counter">your memory · click a circle to write</span>
+      <span class="nav-hint">← / → browse others · 0 = back to your circles</span>
     </div>
   </main>
 
@@ -264,10 +278,19 @@
   </div>
 
   <script>
-    // ------- 状态 -------
-    let allEntries = [];
+    // ===== 状态 =====
+    // currentIndex = -1 表示「自己的 circles（本地草稿）」；
+    // >=0 表示正在看别人（API 中的某一条）
     let currentIndex = -1;
+    let allEntries = [];
     let editingSpot = null;
+
+    // 本地草稿：只属于当前用户，不依赖 API
+    const draft = {
+      spot1: "",
+      spot2: "",
+      spot3: ""
+    };
 
     const prompts = {
       1: "who were you with last time you ate a burger?",
@@ -284,49 +307,70 @@
     const btnCancel = document.getElementById("editor-cancel");
     const btnSave = document.getElementById("editor-save");
 
-    // ------- 工具函数 -------
+    // ===== 工具函数 =====
 
     function getCurrentEntry() {
       if (currentIndex < 0 || currentIndex >= allEntries.length) return null;
       return allEntries[currentIndex];
     }
 
-    function renderEntry() {
-      const entry = getCurrentEntry();
+    function renderDraft() {
+      spots.forEach(spot => {
+        const s = spot.dataset.spot;
+        const key = "spot" + s;
+        const value = (draft[key] || "").trim();
+        const textEl = spot.querySelector(".spot-text");
 
+        if (value) {
+          spot.classList.remove("spot-empty");
+          spot.classList.add("has-text");
+          textEl.textContent = value;
+        } else {
+          spot.classList.add("spot-empty");
+          spot.classList.remove("has-text");
+          textEl.textContent = "";
+        }
+      });
+
+      if (allEntries.length > 0) {
+        entryCounter.textContent = `your memory · ${allEntries.length} others`;
+      } else {
+        entryCounter.textContent = "your memory · click a circle to write";
+      }
+    }
+
+    function renderCurrentEntry() {
+      if (currentIndex === -1) {
+        renderDraft();
+        return;
+      }
+
+      const entry = getCurrentEntry();
       if (!entry) {
-        // 没有任何 entry，显示 placeholder
-        spots.forEach(spot => {
-          const s = spot.dataset.spot;
-          const textEl = spot.querySelector(".spot-text");
-          textEl.classList.add("spot-placeholder");
-          if (s === "1") textEl.textContent = "who were you with?";
-          if (s === "2") textEl.textContent = "what were you eating?";
-          if (s === "3") textEl.textContent = "what did the place smell like?";
-        });
-        entryCounter.textContent = "no entries yet";
+        currentIndex = -1;
+        renderDraft();
         return;
       }
 
       spots.forEach(spot => {
         const s = spot.dataset.spot;
-        const textEl = spot.querySelector(".spot-text");
         const key = "spot" + s;
         const value = (entry[key] || "").trim();
+        const textEl = spot.querySelector(".spot-text");
 
         if (value) {
-          textEl.classList.remove("spot-placeholder");
+          spot.classList.remove("spot-empty");
+          spot.classList.add("has-text");
           textEl.textContent = value;
         } else {
-          textEl.classList.add("spot-placeholder");
-          if (s === "1") textEl.textContent = "who were you with?";
-          if (s === "2") textEl.textContent = "what were you eating?";
-          if (s === "3") textEl.textContent = "what did the place smell like?";
+          spot.classList.add("spot-empty");
+          spot.classList.remove("has-text");
+          textEl.textContent = "";
         }
       });
 
       entryCounter.textContent =
-        "memory " + (currentIndex + 1) + " / " + allEntries.length;
+        `memory ${currentIndex + 1} / ${allEntries.length} · read only`;
     }
 
     async function loadAllEntriesFromAPI() {
@@ -341,24 +385,26 @@
           allEntries = data.sort(
             (a, b) => (a.createdAt || 0) - (b.createdAt || 0)
           );
-          currentIndex = allEntries.length - 1; // 默认看最新的
         } else {
           allEntries = [];
-          currentIndex = -1;
         }
-        renderEntry();
       } catch (err) {
         console.error("load entries error:", err);
+      } finally {
+        if (currentIndex === -1) {
+          renderDraft();
+        } else {
+          renderCurrentEntry();
+        }
       }
     }
 
     function openEditor(spotNumber) {
       editingSpot = spotNumber;
-      const entry = getCurrentEntry();
       const key = "spot" + spotNumber;
 
       editorPrompt.textContent = prompts[spotNumber] || "write something";
-      editorInput.value = entry ? (entry[key] || "") : "";
+      editorInput.value = draft[key] || "";
       overlay.classList.add("visible");
       editorInput.focus();
       editorInput.select();
@@ -369,40 +415,45 @@
       editingSpot = null;
     }
 
-    async function saveCurrentSpot() {
+    async function saveDraftSpot() {
       if (!editingSpot) return;
 
-      const entry = getCurrentEntry() || { spot1: "", spot2: "", spot3: "" };
       const key = "spot" + editingSpot;
+      draft[key] = editorInput.value.trim();
 
-      const updated = {
-        ...entry,
-        [key]: editorInput.value.trim(),
+      // 把当前整套 draft 作为一个 entry 发给 API（纪录你的版本）
+      const payload = {
+        spot1: draft.spot1,
+        spot2: draft.spot2,
+        spot3: draft.spot3,
         createdAt: Date.now()
       };
 
       try {
-        const resp = await fetch("/api/a-entry", {
+        await fetch("/api/a-entry", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updated)
+          body: JSON.stringify(payload)
         });
-        if (!resp.ok) {
-          console.error("save error HTTP", resp.status);
-        }
       } catch (err) {
         console.error("save error:", err);
       } finally {
         closeEditor();
-        await loadAllEntriesFromAPI(); // 保存后重新加载，跳转到最新
+        // 重新加载所有别人的 entries，但保持 currentIndex = -1（你的草稿视图）
+        currentIndex = -1;
+        await loadAllEntriesFromAPI();
       }
     }
 
-    // ------- 事件 -------
+    // ===== 事件 =====
 
-    // 点击圆圈 -> 打开编辑框
+    // 点击圆圈：只有在「自己的 memory 模式」下才能写
     spots.forEach(spot => {
       spot.addEventListener("click", () => {
+        if (currentIndex !== -1) {
+          // 正在看别人：只读
+          return;
+        }
         const n = Number(spot.dataset.spot);
         openEditor(n);
       });
@@ -415,7 +466,7 @@
 
     btnSave.addEventListener("click", async (e) => {
       e.preventDefault();
-      await saveCurrentSpot();
+      await saveDraftSpot();
     });
 
     overlay.addEventListener("click", (e) => {
@@ -424,9 +475,9 @@
       }
     });
 
-    // 左右键切换别人的答案
+    // 键盘：左右键看别人；0 键回到自己的 circles；Esc 关编辑框
     document.addEventListener("keydown", (e) => {
-      // 如果编辑框开着，只响应 Esc
+      // 编辑框打开时只处理 Esc
       if (overlay.classList.contains("visible")) {
         if (e.key === "Escape") {
           e.preventDefault();
@@ -435,21 +486,43 @@
         return;
       }
 
-      if (e.key === "ArrowRight") {
-        if (allEntries.length > 0) {
-          currentIndex = (currentIndex + 1) % allEntries.length;
-          renderEntry();
+      const len = allEntries.length;
+      if (len === 0) {
+        // 没有别人可看
+        if (currentIndex !== -1) {
+          currentIndex = -1;
+          renderDraft();
         }
-      } else if (e.key === "ArrowLeft") {
-        if (allEntries.length > 0) {
-          currentIndex =
-            (currentIndex - 1 + allEntries.length) % allEntries.length;
-          renderEntry();
+        return;
+      }
+
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        // 把 [-1, 0..len-1] 映射到 0..len（循环）
+        const total = len + 1; // 包含自己的 draft
+        let pos = currentIndex + 1; // -1 -> 0, 0 -> 1, ...
+
+        if (e.key === "ArrowRight") {
+          pos = (pos + 1) % total;
+        } else {
+          pos = (pos - 1 + total) % total;
         }
+
+        currentIndex = pos - 1; // 0 -> -1, 1 -> 0, ...
+        if (currentIndex === -1) {
+          renderDraft();
+        } else {
+          renderCurrentEntry();
+        }
+        e.preventDefault();
+      } else if (e.key === "0") {
+        // 快捷键：回到自己的 circles
+        currentIndex = -1;
+        renderDraft();
       }
     });
 
-    // ------- 初始化 -------
+    // ===== 初始化 =====
+    renderDraft();
     loadAllEntriesFromAPI();
   </script>
 </body>
