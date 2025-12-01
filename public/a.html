@@ -23,7 +23,7 @@
 
     body {
       font-family: "Amatic SC", sans-serif;
-      background: #000;
+      background: #000;          /* 🔥 纯黑背景，以后这里可以换成背景图 */
       color: #fff;
       display: flex;
       align-items: center;
@@ -34,12 +34,14 @@
       width: min(90%, 900px);
       height: min(90vh, 600px);
       position: relative;
-      border-radius: 1.4rem;
-      /* ✅ 去掉白色边框 */
+
+      /* ❌ 去掉盒子感：不要边框、不要光晕、不要阴影 */
+      border-radius: 0;
       border: none;
-      background: radial-gradient(circle at 50% 20%, rgba(255,255,255,0.08), transparent 60%);
-      box-shadow: 0 0 40px rgba(0,0,0,0.9);
-      overflow: hidden;
+      background: transparent;
+      box-shadow: none;
+
+      overflow: visible;
     }
 
     .scene-title {
@@ -72,13 +74,17 @@
       gap: 3rem;
       padding: 0 3rem;
       pointer-events: none;
+
+      /* ⭐ 关键：让每个 spot 在格子里水平/垂直居中，这样放大的时候是 centered 的 */
+      justify-items: center;
+      align-items: center;
     }
 
     .spot {
       pointer-events: auto;
       cursor: pointer;
 
-      /* 这是有文字时的基础大小；实际大小会在 JS 里根据文字多少动态修改 */
+      /* 有文字时的基础大小；实际大小在 JS 里按内容动态调整 */
       width: 140px;
       height: 140px;
       max-width: 50vw;
@@ -86,7 +92,7 @@
 
       border-radius: 50%;
       border: 1.5px solid rgba(255,255,255,0.8);
-      background: rgba(0,0,0,0.45);  /* 扁平，不再立体 */
+      background: rgba(0,0,0,0.45);  /* 扁平 */
       box-shadow: none;
       display: flex;
       align-items: center;
@@ -325,13 +331,10 @@
 
   <script>
     // ===== 状态 =====
-    // currentIndex = -1 表示「自己的 circles（本地草稿）」；
-    // >=0 表示正在看别人（API 中的某一条）
-    let currentIndex = -1;
+    let currentIndex = -1;  // -1 = 自己的 circles
     let allEntries = [];
     let editingSpot = null;
 
-    // 本地草稿：只属于当前用户，不依赖 API
     const draft = {
       spot1: "",
       spot2: "",
@@ -354,15 +357,14 @@
     const btnSpotOk = document.getElementById("editor-save");
     const btnSaveAll = document.getElementById("save-all");
 
-    // 手机/桌面都能点的左右按钮
     const btnPrev = document.getElementById("prev-memory-btn");
     const btnNext = document.getElementById("next-memory-btn");
 
-    // ===== 尺寸相关工具：根据文字多少动态调整圆圈大小 =====
+    // ===== 尺寸相关：根据文字多少动态调整圆圈大小 =====
     function resizeSpot(spot, text) {
-      const emptySize = 70;        // ✅ 空圈：更小
-      const baseSize = 120;        // 有少量文字时的基础尺寸
-      const maxSize = 220;         // 最大尺寸，避免撑爆布局
+      const emptySize = 70;   // 空圈：更小
+      const baseSize = 120;   // 有少量文字时的基础尺寸
+      const maxSize = 220;    // 最大尺寸
 
       const value = (text || "").trim();
       let size;
@@ -371,8 +373,7 @@
         size = emptySize;
       } else {
         const len = value.length;
-        // 每个字符增加一点点尺寸，限制在 maxSize 内
-        size = baseSize + len * 2; // 你可以调整乘数让变化更明显或更温柔
+        size = baseSize + len * 2;
         if (size > maxSize) size = maxSize;
       }
 
@@ -380,8 +381,7 @@
       spot.style.height = size + "px";
     }
 
-    // ===== 其他工具函数 =====
-
+    // ===== render & 数据相关 =====
     function getCurrentEntry() {
       if (currentIndex < 0 || currentIndex >= allEntries.length) return null;
       return allEntries[currentIndex];
@@ -412,7 +412,6 @@
           textEl.textContent = "";
         }
 
-        // ✅ 每次渲染时，根据文字多少调整尺寸（空的就是小圆点）
         resizeSpot(spot, value);
       });
 
@@ -422,7 +421,6 @@
         entryCounter.textContent = "your memory · click a circle to write";
       }
 
-      // 控制 “save memory” 按钮是否可点
       btnSaveAll.disabled = !allDraftFilled();
     }
 
@@ -455,14 +453,12 @@
           textEl.textContent = "";
         }
 
-        // ✅ 读别人的记忆时，也根据文字多少调整尺寸
         resizeSpot(spot, value);
       });
 
       entryCounter.textContent =
         `memory ${currentIndex + 1} / ${allEntries.length} · read only`;
 
-      // 看别人时，不能保存
       btnSaveAll.disabled = true;
     }
 
@@ -508,18 +504,15 @@
       editingSpot = null;
     }
 
-    // 不再保存到 API，只更新本地 draft
     function confirmDraftSpot() {
       if (!editingSpot) return;
       const key = "spot" + editingSpot;
       draft[key] = editorInput.value.trim();
       closeEditor();
-      // 仍然保持 currentIndex = -1（在自己的 memory 模式）
       currentIndex = -1;
       renderDraft();
     }
 
-    // 真正发到 API 的保存：一次性提交 3 个 spot
     async function saveFullDraftToAPI() {
       if (!allDraftFilled()) return;
 
@@ -549,18 +542,15 @@
         console.error("save error:", err);
       } finally {
         btnSaveAll.textContent = "save memory";
-        // 保存完之后重新拉一次别人写的 memory
         await loadAllEntriesFromAPI();
         currentIndex = -1;
         renderDraft();
       }
     }
 
-    // 抽出来的导航函数：direction = +1（下一个） 或 -1（上一个）
     function moveMemory(direction) {
       const len = allEntries.length;
       if (len === 0) {
-        // 没有别人可看，就回到自己的 circles
         if (currentIndex !== -1) {
           currentIndex = -1;
           renderDraft();
@@ -568,8 +558,8 @@
         return;
       }
 
-      const total = len + 1; // 包含自己的 draft
-      let pos = currentIndex + 1; // -1 -> 0, 0 -> 1, ...
+      const total = len + 1;
+      let pos = currentIndex + 1;
 
       if (direction > 0) {
         pos = (pos + 1) % total;
@@ -577,7 +567,7 @@
         pos = (pos - 1 + total) % total;
       }
 
-      currentIndex = pos - 1; // 0 -> -1, 1 -> 0, ...
+      currentIndex = pos - 1;
       if (currentIndex === -1) {
         renderDraft();
       } else {
@@ -585,15 +575,10 @@
       }
     }
 
-    // ===== 事件 =====
-
-    // 点击圆圈：只有在「自己的 memory 模式」下才能写
+    // ===== 事件绑定 =====
     spots.forEach(spot => {
       spot.addEventListener("click", () => {
-        if (currentIndex !== -1) {
-          // 正在看别人：只读
-          return;
-        }
+        if (currentIndex !== -1) return;
         const n = Number(spot.dataset.spot);
         openEditor(n);
       });
@@ -604,26 +589,21 @@
       closeEditor();
     });
 
-    // 现在这个按钮只是“OK”，不发网络请求
     btnSpotOk.addEventListener("click", (e) => {
       e.preventDefault();
       confirmDraftSpot();
     });
 
     overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) {
-        closeEditor();
-      }
+      if (e.target === overlay) closeEditor();
     });
 
-    // 底部 “save memory” 按钮：一次性 POST 三个 spot
     btnSaveAll.addEventListener("click", async (e) => {
       e.preventDefault();
       if (!allDraftFilled()) return;
       await saveFullDraftToAPI();
     });
 
-    // 手机/桌面都能点的左右按钮
     btnPrev.addEventListener("click", (e) => {
       e.preventDefault();
       moveMemory(-1);
@@ -634,9 +614,7 @@
       moveMemory(1);
     });
 
-    // 键盘：左右键看别人；0 键回到自己的 circles；Esc 关编辑框
     document.addEventListener("keydown", (e) => {
-      // 编辑框打开时只处理 Esc
       if (overlay.classList.contains("visible")) {
         if (e.key === "Escape") {
           e.preventDefault();
@@ -652,7 +630,6 @@
         e.preventDefault();
         moveMemory(-1);
       } else if (e.key === "0") {
-        // 快捷键：回到自己的 circles
         currentIndex = -1;
         renderDraft();
       }
