@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>whispering forest – scene A</title>
+  <title>whispering forest – scene B</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- 字体：Amatic SC -->
@@ -433,7 +433,7 @@
 
     async function loadAllEntriesFromAPI() {
       try {
-        const resp = await fetch("/api/a-entries");
+        const resp = await fetch("/api/b-entries");
         if (!resp.ok) {
           allEntries = [];
         } else {
@@ -496,7 +496,7 @@
         btnSaveAll.disabled = true;
         btnSaveAll.textContent = "saving...";
 
-        const resp = await fetch("/api/a-entry", {
+        const resp = await fetch("/api/b-entry", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
