@@ -24,8 +24,12 @@
 
     body {
       font-family: "Amatic SC", sans-serif;
-      background: #000;          /* 以后整页背景图可以直接换这里 */
+      background-image: url("https://whispering-forest.neocities.org/image/d.jpg"); 
+      background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
       color: #fff;
+ 
     }
 
     /* 整个场景画布 */
@@ -43,7 +47,7 @@
       position: absolute;
       top: 3.0rem;      /* 原来 0.4rem，往下挪一点 */
       left: -0.1rem;     /* 原来 0.6rem，更靠左一点 */
-      font-size: 1.3rem;
+      font-size: 2rem;
       text-decoration: none;
       color: #fff;
       opacity: 0.8;
@@ -58,7 +62,7 @@
       top: 2.6rem;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 1.4rem;
+      font-size: 2rem;
       letter-spacing: 0.18em;
       opacity: 0.85;
       text-transform: uppercase;
@@ -133,7 +137,7 @@
     .spot.has-text::before { opacity: 0; }
 
     .spot-text {
-      font-size: 1.4rem;
+      font-size: 2rem;
       white-space: pre-wrap;
       word-break: break-word;
       max-width: 90%;
@@ -154,7 +158,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 0.6rem;
-      font-size: 1rem;
+      font-size: 2rem;
       opacity: 0.9;
       pointer-events: none;
     }
@@ -174,7 +178,7 @@
       color: #fff;
       cursor: pointer;
       font-family: "Amatic SC", sans-serif;
-      font-size: 1.1rem;
+      font-size: 2rem;
       transition: background 140ms, color 140ms, border-color 140ms;
       pointer-events: auto;
     }
@@ -186,7 +190,7 @@
 
     .btn-nav {
       padding: 0.1rem 0.7rem;
-      font-size: 1.1rem;
+      font-size: 2rem;
     }
 
     .btn:disabled {
@@ -195,7 +199,7 @@
     }
 
     .nav-hint {
-      font-size: 0.9rem;
+      font-size: 2rem;
       opacity: 0.75;
     }
 
@@ -224,7 +228,7 @@
     }
 
     .editor-prompt {
-      font-size: 1.4rem;
+      font-size: 2rem;
       margin-bottom: 0.6rem;
     }
 
@@ -237,7 +241,7 @@
       padding: 0.6rem 0.8rem;
       color: #fff;
       font-family: "Amatic SC", sans-serif;
-      font-size: 1.4rem;
+      font-size: 2rem;
       resize: vertical;
       outline: none;
     }
@@ -328,9 +332,9 @@
     const draft = { spot1: "", spot2: "", spot3: "" };
 
     const prompts = {
-      1: "who were you with last time you ate a burger?",
-      2: "what were you eating?",
-      3: "what could you hear around you?"
+      1: "When was the moment you stepped aside briefly just to collect yourself?",
+      2: "Is there a small private space where you feel safe to pause and breathe?",
+      3: "What thoughts come to you in those quiet in-between moments?"
     };
 
     const spots = Array.from(document.querySelectorAll(".spot"));
